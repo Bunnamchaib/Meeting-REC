@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ระบบลงทะเบียนเข้าประชุม TCT</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <style>
+        body {
+            /* สีพื้นหลังตามภาพตัวอย่าง */
+            background: linear-gradient(135deg, #6b73c2 0%, #8a68b4 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .logo-container {
+            width: 80px; height: 80px;
+            background-color: white;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            margin: 0 auto 20px auto;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .logo-container img {
+            width: 70%; height: auto;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center p-4">
+
+    <script>
+        const API_URL = "https://script.google.com/macros/s/AKfycbwBDINgzeKljgMxRnt6VojTTMe_WYSXj30wXG6sT35esT50c9d2i3xbj7_bORwg60_Lrw/exec";
+    </script>
+
+    <div class="w-full max-w-md">
+        <div class="logo-container">
+            <img src="http://110.77.148.173/webthaicubic/images/New-Cubic-Logo.jpg" alt="TCT Logo">
+        </div>
+
+        <div class="bg-[#f8f9fc] rounded-2xl shadow-xl p-6 sm:p-8 w-full relative">
+            
+            <div id="view-login">
+                <h2 class="text-2xl font-bold text-center text-gray-700 mb-6">ระบบลงทะเบียนเข้าประชุม</h2>
+                
+                <input type="text" id="empId" placeholder="รหัสพนักงาน" 
+                    class="w-full px-4 py-3 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-[#7c3aed] text-lg mb-4 text-center">
+                
+                <button onclick="checkEmployee()" 
+                    class="w-full bg-[#7c3aed] hover:bg-[#6d28d9] text-white font-bold py-3 rounded-lg transition duration-200 mb-2">
+                    ตรวจสอบ
+                </button>
+
+                <button onclick="viewHistoryDirectly()" 
+                    class="w-full text-sm text-gray-500 hover:text-[#7c3aed] py-2 transition duration-200 underline">
+                    ประวัติการเข้าประชุม
+                </button>
+            </div>
+
+            <div id="view-confirm" class="hidden">
+                <h2 class="text-2xl font-bold text-center text-gray-700 mb-6">ข้อมูลพนักงาน</h2>
+                
+                <div class="bg-gray-200/50 rounded-lg p-4 mb-6 border-l-4 border-[#7c3aed]">
+                    <p class="text-xl font-bold text-gray-800" id="show-name">ชื่อ-สกุล</p>
+                    <p class="text-gray-500" id="show-position">ตำแหน่ง</p>
+                </div>
+
+                <button onclick="joinMeeting()" 
+                    class="w-full bg-[#10b981] hover:bg-[#059669] text-white font-bold py-3 rounded-lg transition duration-200 mb-3 flex justify-center items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                    เข้าร่วมประชุม
+                </button>
+
+                <button onclick="goBack('view-confirm')" 
+                    class="w-full bg-[#ef4444] hover:bg-[#dc2626] text-white font-bold py-3 rounded-lg transition duration-200 flex justify-center items-center gap-2">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    ไม่สามารถเข้าร่วม (กลับ)
+                </button>
+            </div>
+
+            <div id="view-history" class="hidden">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-700">ประวัติการเข้าประชุม</h2>
+                    <button onclick="goBack('view-history')" class="text-gray-500 hover:text-red-500">✖ ปิด</button>
+                </div>
+
+                <p class="font-bold text-[#7c3aed] mb-4 text-center" id="history-name-label"></p>
+
+                <div class="grid grid-cols-3 gap-2 mb-4 text-center">
+                    <div class="bg-blue-100 p-2 rounded-lg">
+                        <p class="text-xs text-blue-600">เดือนนี้</p>
+                        <p class="text-lg font-bold text-blue-800" id="stat-month">0</p>
+                    </div>
+                    <div class="bg-purple-100 p-2 rounded-lg">
+                        <p class="text-xs text-purple-600">APQP รวม</p>
+                        <p class="text-lg font-bold text-purple-800" id="stat-apqp">0</p>
+                    </div>
+                    <div class="bg-green-100 p-2 rounded-lg">
+                        <p class="text-xs text-green-600">OBEYA รวม</p>
+                        <p class="text-lg font-bold text-green-800" id="stat-obeya">0</p>
+                    </div>
+                </div>
+
+                <div class="flex gap-2 mb-4 text-sm">
+                    <input type="date" id="filter-date" onchange="renderTables()" class="w-full border p-2 rounded">
+                    <button onclick="clearFilter()" class="bg-gray-200 px-3 rounded hover:bg-gray-300">ล้าง</button>
+                </div>
+
+                <div class="max-h-60 overflow-y-auto">
+                    <div class="mb-4">
+                        <h3 class="font-bold text-purple-700 bg-purple-100 px-2 py-1 rounded">การประชุม APQP</h3>
+                        <table class="w-full text-sm text-left mt-2">
+                            <tbody id="table-apqp"></tbody>
+                        </table>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-green-700 bg-green-100 px-2 py-1 rounded">การประชุม OBEYA</h3>
+                        <table class="w-full text-sm text-left mt-2">
+                            <tbody id="table-obeya"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <div id="loading" class="hidden absolute inset-0 bg-white/80 rounded-2xl flex flex-col justify-center items-center">
+                <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-[#7c3aed]"></div>
+                <p class="mt-2 text-sm text-gray-500">กำลังประมวลผล...</p>
+            </div>
+
+        </div>
+        
+        <p class="text-center text-white/70 text-xs mt-6">Copyright © 2026 Thai Cubic Technology Co., Ltd</p>
+    </div>
+
+    <script>
+        let currentUser = {};
+        let allHistoryData = [];
+
+        function showLoading() { document.getElementById('loading').classList.remove('hidden'); }
+        function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
+        
+        function switchView(viewId) {
+            document.getElementById('view-login').classList.add('hidden');
+            document.getElementById('view-confirm').classList.add('hidden');
+            document.getElementById('view-history').classList.add('hidden');
+            document.getElementById(viewId).classList.remove('hidden');
+        }
+
+        function goBack(currentView) {
+            switchView('view-login');
+            document.getElementById('empId').value = '';
+        }
+
+        // ค้นหาพนักงาน
+        async function checkEmployee() {
+            const empId = document.getElementById('empId').value.trim();
+            if(!empId) return Swal.fire('แจ้งเตือน', 'กรุณากรอกรหัสพนักงาน', 'warning');
+
+            showLoading();
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'check', empId: empId })
+                }).then(r => r.json());
+
+                hideLoading();
+                if(res.success) {
+                    currentUser = { id: empId, name: res.empName, pos: res.empPosition };
+                    document.getElementById('show-name').innerText = res.empName;
+                    document.getElementById('show-position').innerText = res.empPosition;
+                    switchView('view-confirm');
+                } else {
+                    Swal.fire('ข้อผิดพลาด', res.message, 'error');
+                }
+            } catch(e) {
+                hideLoading();
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error');
+            }
+        }
+
+        // บันทึกเข้าร่วมประชุม
+        async function joinMeeting() {
+            showLoading();
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'join', empId: currentUser.id, empName: currentUser.name })
+                }).then(r => r.json());
+
+                if(res.success) {
+                    await Swal.fire('สำเร็จ!', res.message, 'success');
+                    loadHistory(currentUser.id, currentUser.name); // โหลดประวัติแล้วเด้งไปหน้าประวัติ
+                } else {
+                    hideLoading();
+                    Swal.fire('ข้อผิดพลาด', res.message, 'warning');
+                }
+            } catch(e) {
+                hideLoading();
+                Swal.fire('ข้อผิดพลาด', 'การบันทึกขัดข้อง', 'error');
+            }
+        }
+
+        // กดดูประวัติโดยตรงจากหน้าแรก
+        async function viewHistoryDirectly() {
+            const empId = document.getElementById('empId').value.trim();
+            if(!empId) return Swal.fire('แจ้งเตือน', 'กรุณากรอกรหัสพนักงานเพื่อดูประวัติ', 'warning');
+            
+            showLoading();
+            // เช็คชื่อก่อนแล้วค่อยดึงประวัติ
+            try {
+                const resCheck = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'check', empId: empId })
+                }).then(r => r.json());
+
+                if(!resCheck.success) {
+                    hideLoading();
+                    return Swal.fire('ข้อผิดพลาด', resCheck.message, 'error');
+                }
+                loadHistory(empId, resCheck.empName);
+            } catch(e) {
+                hideLoading();
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อระบบได้', 'error');
+            }
+        }
+
+        // โหลดและคำนวณประวัติ
+        async function loadHistory(empId, empName) {
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'history', empId: empId })
+                }).then(r => r.json());
+                
+                hideLoading();
+                if(res.success) {
+                    allHistoryData = res.data;
+                    document.getElementById('history-name-label').innerText = `คุณ${empName}`;
+                    clearFilter(); // จะเรียก renderTables ให้อัตโนมัติ
+                    switchView('view-history');
+                }
+            } catch(e) {
+                hideLoading();
+                Swal.fire('ข้อผิดพลาด', 'ไม่สามารถดึงประวัติได้', 'error');
+            }
+        }
+
+        function clearFilter() {
+            document.getElementById('filter-date').value = '';
+            renderTables();
+        }
+
+        // เรนเดอร์ตารางและคำนวณสถิติ
+        function renderTables() {
+            const filterDate = document.getElementById('filter-date').value; // format: YYYY-MM-DD
+            // แปลง format ให้ตรงกับที่มาจาก GAS (dd/MM/yyyy) เพื่อใช้เทียบ
+            let filterDateStr = "";
+            if(filterDate) {
+                const d = filterDate.split('-');
+                filterDateStr = `${d[2]}/${d[1]}/${d[0]}`; 
+            }
+
+            const apqpTbody = document.getElementById('table-apqp');
+            const obeyaTbody = document.getElementById('table-obeya');
+            apqpTbody.innerHTML = ''; obeyaTbody.innerHTML = '';
+
+            let countAPQP = 0; let countOBEYA = 0; let countThisMonth = 0;
+            const currentMonth = new Date().getMonth() + 1;
+            const currentYear = new Date().getFullYear();
+
+            allHistoryData.forEach(row => {
+                // คำนวณสถิติ (แบบรวมทั้งหมดไม่ผ่าน filter)
+                if(row.type === 'APQP') countAPQP++;
+                if(row.type === 'OBEYA') countOBEYA++;
+                
+                // เช็คยอดของเดือนนี้ (อ้างอิงจากวันที่ DD/MM/YYYY)
+                const parts = row.date.split('/');
+                if(parts.length === 3) {
+                    if(parseInt(parts[1]) === currentMonth && parseInt(parts[2]) === currentYear) {
+                        countThisMonth++;
+                    }
+                }
+
+                // กรองข้อมูลตาราง
+                if(filterDateStr && row.date !== filterDateStr) return;
+
+                const tr = document.createElement('tr');
+                tr.className = "border-b";
+                tr.innerHTML = `<td class="py-2 text-gray-600">${row.date}</td><td class="py-2 text-right">${row.time}</td>`;
+                
+                if(row.type === 'APQP') apqpTbody.appendChild(tr);
+                else obeyaTbody.appendChild(tr);
+            });
+
+            if(apqpTbody.innerHTML === '') apqpTbody.innerHTML = '<tr><td colspan="2" class="text-center py-2 text-gray-400">ไม่มีข้อมูล</td></tr>';
+            if(obeyaTbody.innerHTML === '') obeyaTbody.innerHTML = '<tr><td colspan="2" class="text-center py-2 text-gray-400">ไม่มีข้อมูล</td></tr>';
+
+            // อัปเดตสถิติ
+            document.getElementById('stat-month').innerText = countThisMonth;
+            document.getElementById('stat-apqp').innerText = countAPQP;
+            document.getElementById('stat-obeya').innerText = countOBEYA;
+        }
+    </script>
+</body>
+</html>
