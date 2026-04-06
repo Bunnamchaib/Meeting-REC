@@ -181,9 +181,9 @@
         <p class="mt-4 text-gray-600 font-bold">กำลังประมวลผล...</p>
     </div>
 
-    <script>
+<script>
         // Setup Base64 Logo ถ้ามีการใส่ค่าไว้
-        if (LOGO_BASE64 && LOGO_BASE64.startsWith("data:image")) {
+        if (typeof LOGO_BASE64 !== 'undefined' && LOGO_BASE64 && LOGO_BASE64.startsWith("data:image")) {
             document.getElementById('main-logo').src = LOGO_BASE64;
         }
 
@@ -241,7 +241,7 @@
             } catch(e) { hideLoading(); Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error'); }
         }
 
-        // 2. บันทึกเข้าประชุม (V2 ส่งตำแหน่งไปด้วย)
+        // 2. บันทึกเข้าประชุม (แก้ลอจิกตรงนี้ให้ส่งข้อมูลอย่างเดียว ไม่โหลดตารางอัตโนมัติ)
         async function joinMeeting() {
             showLoading();
             try {
@@ -250,16 +250,36 @@
                     body: JSON.stringify({ action: 'join', empId: currentUser.id, empName: currentUser.name, empPosition: currentUser.pos })
                 }).then(r => r.json());
 
+                hideLoading(); // ปิดโหลดทันทีเมื่อได้ผลลัพธ์การเซฟ
+
                 if(res.success) {
-                    await Swal.fire('สำเร็จ!', res.message, 'success');
-                    loadHistory(currentUser.id, currentUser.name);
+                    // แสดง Popup แบบมีตัวเลือก แทนการสลับหน้าไปโหลดข้อมูลทันที
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'สำเร็จ!',
+                        text: res.message,
+                        showCancelButton: true,
+                        confirmButtonColor: '#3085d6',
+                        cancelButtonColor: '#d33',
+                        confirmButtonText: 'ดูประวัติการประชุม',
+                        cancelButtonText: 'กลับหน้าแรก',
+                        reverseButtons: true
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // กดดูประวัติ: ระบบถึงจะยอมไปดึงข้อมูลประวัติมาให้
+                            loadHistory(currentUser.id, currentUser.name);
+                        } else {
+                            // กดกลับ หรือ ปิด: เคลียร์ค่ากลับหน้าลงชื่อทันที
+                            goBack();
+                        }
+                    });
                 } else {
-                    hideLoading(); Swal.fire('ข้อผิดพลาด', res.message, 'warning');
+                    Swal.fire('ข้อผิดพลาด', res.message, 'warning');
                 }
             } catch(e) { hideLoading(); Swal.fire('ข้อผิดพลาด', 'การบันทึกขัดข้อง', 'error'); }
         }
 
-        // 3. ดูประวัติ
+        // 3. ดูประวัติ (ดึงข้อมูลก็ต่อเมื่อถูกเรียกใช้งานเท่านั้น)
         async function viewHistoryDirectly() {
             const empId = document.getElementById('empId').value.trim();
             if(!empId) return Swal.fire('แจ้งเตือน', 'กรุณากรอกรหัสพนักงานก่อนดูประวัติ', 'warning');
@@ -273,13 +293,14 @@
         }
 
         async function loadHistory(empId, empName) {
+            showLoading();
             try {
                 const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'history', empId: empId }) }).then(r => r.json());
                 hideLoading();
                 if(res.success) {
                     document.getElementById('history-name-label').innerText = `คุณ${empName}`;
                     renderHistory(res.data);
-                    switchView('view-history');
+                    switchView('view-history'); // เปลี่ยนไปหน้าประวัติเมื่อโหลดข้อมูลเสร็จ
                 }
             } catch(e) { hideLoading(); Swal.fire('ข้อผิดพลาด', 'ดึงประวัติไม่สำเร็จ', 'error'); }
         }
@@ -306,7 +327,7 @@
             document.getElementById('stat-obeya').innerText = cOBEYA;
         }
 
-        // 4. V2: ดึงรายงาน A4
+        // 4. V2: ดึงรายงาน A4 (ฟังก์ชันนี้ทำงานได้ดีตามปกติ ไม่ถูกแก้ไข)
         async function generateReport() {
             const dateInput = document.getElementById('report-date').value;
             const typeInput = document.querySelector('input[name="report-type"]:checked').value;
