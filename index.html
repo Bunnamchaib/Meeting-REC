@@ -182,164 +182,151 @@
     </div>
 
     <script>
-        // ----------------------------------------------------
-        // 1. ใส่ URL ของ Web App ตรงนี้ (ใส่ของคุณกลับเข้าไป)
-        const API_URL = "https://script.google.com/macros/s/AKfycbwGxUo4rcccPDoQqjdazV7VI8C0Or7GvlS0Y4wT1E4-0fTeBCNpGyOKDe2RtZumbbyjSg/exec";
+        // Setup Base64 Logo ถ้ามีการใส่ค่าไว้
+        if (LOGO_BASE64 && LOGO_BASE64.startsWith("data:image")) {
+            document.getElementById('main-logo').src = LOGO_BASE64;
+        }
+
+        let currentUser = {};
+
+        function showLoading() { document.getElementById('loading').classList.remove('hidden'); }
+        function hideLoading() { document.getElementById('loading').classList.add('hidden'); }
         
-        // 2. วางโค้ดรูปภาพ BASE 64 ตรงนี้ (ผมเว้นว่างไว้ให้ตามที่คุณเคยขอ)
-        const LOGO_BASE64 = "";
-
-        // ฟังก์ชันโหลดรูปโลโก้
-        if(LOGO_BASE64 !== "") {
-            const logoImg = document.getElementById('logo-img');
-            if(logoImg) logoImg.src = LOGO_BASE64;
-        }
-
-        // ==========================================
-        // จุดที่ 1: ไม่ต้องโหลดข้อมูลตารางมารอตอนเปิดเว็บ
-        // ==========================================
-        window.onload = function() {
-            // เปิดหน้าลงทะเบียนเป็นหน้าแรก
-            switchView('view-register');
-            
-            // ลบการเรียก loadHistory() ออก เพื่อให้หน้าเว็บโหลดเสร็จทันที ไม่เสียเวลาโหลดข้อมูล
-        };
-
-        function showLoading() {
-            Swal.fire({
-                title: 'กำลังประมวลผล...',
-                allowOutsideClick: false,
-                didOpen: () => {
-                    Swal.showLoading();
-                }
-            });
-        }
-
-        function hideLoading() {
-            Swal.close();
-        }
-
-        // ==========================================
-        // จุดที่ 3: หน้าประวัติต่างๆ ไม่ต้องเรียกข้อมูล ถ้าไม่ได้กดร้องขอ
-        // ==========================================
         function switchView(viewId) {
             // ซ่อนทุกหน้า
-            document.querySelectorAll('.view-section').forEach(el => {
-                el.classList.add('hidden');
+            ['view-login', 'view-confirm', 'view-history', 'view-report-setup'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
             });
+            document.getElementById('view-print').classList.add('hidden');
+            
+            // จัดการ Logo (แสดงเฉพาะหน้า Login)
+            document.getElementById('logo-container').style.display = (viewId === 'view-login') ? 'block' : 'none';
+            
             // แสดงหน้าที่เลือก
-            const viewEl = document.getElementById(viewId);
-            if(viewEl) viewEl.classList.remove('hidden');
-
-            // **ดึงข้อมูลก็ต่อเมื่อมีการเปลี่ยนมาที่หน้าประวัติ (view-history) เท่านั้น**
-            if (viewId === 'view-history') {
-                loadHistory(); 
+            if(viewId === 'view-print') {
+                document.getElementById('app-container').classList.add('hidden');
+                document.getElementById('view-print').classList.remove('hidden');
+            } else {
+                document.getElementById('app-container').classList.remove('hidden');
+                document.getElementById(viewId).classList.remove('hidden');
             }
         }
 
-        // ==========================================
-        // จุดที่ 2: ลอจิกส่งข้อมูลลงชื่อ (ทำแค่ส่งข้อมูลให้ไวมาก แล้วโชว์ปุ่มให้เลือก)
-        // ==========================================
-        async function submitForm(event) {
-            event.preventDefault();
-            
-            // รวบรวมข้อมูลจากฟอร์ม
-            const form = document.getElementById('register-form');
-            if(!form) return;
-            const formData = new FormData(form);
-            const data = Object.fromEntries(formData.entries());
-            
-            showLoading(); // แสดง UI กำลังโหลด
-            
-            try {
-                // ส่งข้อมูลไปเซฟอย่างเดียว (ไม่โหลดตารางกลับมา) เพื่อความไว
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'register', ...data })
-                });
-                const res = await response.json();
-                
-                hideLoading();
+        function goBack() {
+            switchView('view-login');
+            document.getElementById('empId').value = '';
+        }
 
-                if (res.status === 'success' || res.success) {
-                    // ลงชื่อเสร็จ โชว์ Popup แบบมีปุ่มให้กดเลือก
-                    Swal.fire({
-                        icon: 'success',
-                        title: 'ลงชื่อเข้าประชุมสำเร็จ',
-                        showCancelButton: true,
-                        confirmButtonColor: '#3085d6',
-                        cancelButtonColor: '#d33',
-                        confirmButtonText: 'ดูประวัติการประชุม',
-                        cancelButtonText: 'ปิดหน้าต่าง',
-                        reverseButtons: true
-                    }).then((result) => {
-                        form.reset(); // รีเซ็ตฟอร์มให้คนต่อไปพร้อมลงชื่อ
-                        
-                        // ถ้าผู้ใช้กดปุ่ม "ดูประวัติการประชุม" ระบบค่อยสั่งเปลี่ยนหน้าและดึงข้อมูล
-                        if (result.isConfirmed) {
-                            switchView('view-history'); 
-                        }
-                    });
+        function closeReport() {
+            switchView('view-report-setup');
+        }
+
+        // 1. ตรวจสอบพนักงาน
+        async function checkEmployee() {
+            const empId = document.getElementById('empId').value.trim();
+            if(!empId) return Swal.fire('แจ้งเตือน', 'กรุณากรอกรหัสพนักงาน', 'warning');
+
+            showLoading();
+            try {
+                const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'check', empId: empId }) }).then(r => r.json());
+                hideLoading();
+                if(res.success) {
+                    currentUser = { id: empId, name: res.empName, pos: res.empPosition };
+                    document.getElementById('show-name').innerText = res.empName;
+                    document.getElementById('show-position').innerText = res.empPosition;
+                    switchView('view-confirm');
                 } else {
-                    Swal.fire('ข้อผิดพลาด', res.message || 'ไม่สามารถบันทึกข้อมูลได้', 'error');
+                    Swal.fire('ข้อผิดพลาด', res.message, 'error');
                 }
-            } catch(e) { 
-                hideLoading(); 
-                Swal.fire('ข้อผิดพลาด', 'ส่งข้อมูลไม่สำเร็จ', 'error'); 
-            }
+            } catch(e) { hideLoading(); Swal.fire('ข้อผิดพลาด', 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้', 'error'); }
         }
 
-        // ==========================================
-        // ฟังก์ชันดึงประวัติการประชุม (ทำงานเมื่อถูกเรียกจาก switchView เท่านั้น)
-        // ==========================================
-        async function loadHistory() {
+        // 2. บันทึกเข้าประชุม (V2 ส่งตำแหน่งไปด้วย)
+        async function joinMeeting() {
             showLoading();
             try {
-                // ยิง API ดึงข้อมูลประวัติ
-                const response = await fetch(API_URL + "?action=getHistory"); 
-                const res = await response.json();
-                hideLoading();
-                
-                if (res.status === 'success' || res.success) {
-                    const tbody = document.getElementById('history-tbody');
-                    if(tbody) {
-                        tbody.innerHTML = '';
-                        res.data.forEach((item, index) => {
-                            tbody.innerHTML += `
-                                <tr>
-                                    <td class="border border-gray-300 p-2 text-center">${index + 1}</td>
-                                    <td class="border border-gray-300 p-2">${item.name}</td>
-                                    <td class="border border-gray-300 p-2 text-center">${item.empId}</td>
-                                    <td class="border border-gray-300 p-2 text-center">${item.time}</td>
-                                </tr>
-                            `;
-                        });
-                    }
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    body: JSON.stringify({ action: 'join', empId: currentUser.id, empName: currentUser.name, empPosition: currentUser.pos })
+                }).then(r => r.json());
+
+                if(res.success) {
+                    await Swal.fire('สำเร็จ!', res.message, 'success');
+                    loadHistory(currentUser.id, currentUser.name);
+                } else {
+                    hideLoading(); Swal.fire('ข้อผิดพลาด', res.message, 'warning');
                 }
-            } catch(e) {
-                hideLoading();
-                Swal.fire('ข้อผิดพลาด', 'ดึงข้อมูลประวัติไม่สำเร็จ', 'error');
-            }
+            } catch(e) { hideLoading(); Swal.fire('ข้อผิดพลาด', 'การบันทึกขัดข้อง', 'error'); }
         }
 
-        // ==========================================
-        // จุดที่ 4: หน้าดึงข้อมูลรายงาน (จำเป็นต้องดึงตาราง คงไว้ตามเดิม)
-        // ==========================================
-        async function fetchReport() {
-            const typeInput = document.getElementById('report-type').value;
-            const dateStr = document.getElementById('report-date').value;
+        // 3. ดูประวัติ
+        async function viewHistoryDirectly() {
+            const empId = document.getElementById('empId').value.trim();
+            if(!empId) return Swal.fire('แจ้งเตือน', 'กรุณากรอกรหัสพนักงานก่อนดูประวัติ', 'warning');
             
             showLoading();
             try {
-                const response = await fetch(API_URL, {
-                    method: 'POST',
-                    body: JSON.stringify({ action: 'report', type: typeInput, date: dateStr })
-                });
-                const res = await response.json();
+                const resCheck = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'check', empId: empId }) }).then(r => r.json());
+                if(!resCheck.success) { hideLoading(); return Swal.fire('ข้อผิดพลาด', resCheck.message, 'error'); }
+                loadHistory(empId, resCheck.empName);
+            } catch(e) { hideLoading(); Swal.fire('ข้อผิดพลาด', 'เชื่อมต่อขัดข้อง', 'error'); }
+        }
+
+        async function loadHistory(empId, empName) {
+            try {
+                const res = await fetch(API_URL, { method: 'POST', body: JSON.stringify({ action: 'history', empId: empId }) }).then(r => r.json());
                 hideLoading();
+                if(res.success) {
+                    document.getElementById('history-name-label').innerText = `คุณ${empName}`;
+                    renderHistory(res.data);
+                    switchView('view-history');
+                }
+            } catch(e) { hideLoading(); Swal.fire('ข้อผิดพลาด', 'ดึงประวัติไม่สำเร็จ', 'error'); }
+        }
+
+        function renderHistory(data) {
+            const apqpT = document.getElementById('table-apqp'); const obeyaT = document.getElementById('table-obeya');
+            apqpT.innerHTML = ''; obeyaT.innerHTML = '';
+            let cAPQP = 0, cOBEYA = 0, cMonth = 0;
+            const curMonth = new Date().getMonth() + 1; const curYear = new Date().getFullYear();
+
+            data.forEach(row => {
+                if(row.type === 'APQP') cAPQP++; if(row.type === 'OBEYA') cOBEYA++;
+                const parts = row.date.split('/');
+                if(parts.length===3 && parseInt(parts[1])===curMonth && parseInt(parts[2])===curYear) cMonth++;
+
+                const tr = `<tr class="border-b"><td class="py-1 text-gray-600">${row.date}</td><td class="py-1 text-right">${row.time}</td></tr>`;
+                row.type === 'APQP' ? apqpT.innerHTML += tr : obeyaT.innerHTML += tr;
+            });
+            if(!apqpT.innerHTML) apqpT.innerHTML = '<tr><td colspan="2" class="text-center text-gray-400">ไม่มีข้อมูล</td></tr>';
+            if(!obeyaT.innerHTML) obeyaT.innerHTML = '<tr><td colspan="2" class="text-center text-gray-400">ไม่มีข้อมูล</td></tr>';
+
+            document.getElementById('stat-month').innerText = cMonth;
+            document.getElementById('stat-apqp').innerText = cAPQP;
+            document.getElementById('stat-obeya').innerText = cOBEYA;
+        }
+
+        // 4. V2: ดึงรายงาน A4
+        async function generateReport() {
+            const dateInput = document.getElementById('report-date').value;
+            const typeInput = document.querySelector('input[name="report-type"]:checked').value;
+            
+            if(!dateInput) return Swal.fire('แจ้งเตือน', 'กรุณาเลือกวันที่ต้องการดึงรายงาน', 'warning');
+
+            // แปลง YYYY-MM-DD เป็น DD/MM/YYYY
+            const d = dateInput.split('-');
+            const dateStr = `${d[2]}/${d[1]}/${d[0]}`;
+
+            showLoading();
+            try {
+                const res = await fetch(API_URL, { 
+                    method: 'POST', 
+                    body: JSON.stringify({ action: 'report', date: dateStr, type: typeInput }) 
+                }).then(r => r.json());
                 
-                if (res.status === 'success' || res.success) {
-                    if (!res.data || res.data.length === 0) {
+                hideLoading();
+                if(res.success) {
+                    if(res.data.length === 0) {
                         return Swal.fire('ไม่พบข้อมูล', `ไม่มีผู้เข้าร่วมประชุม ${typeInput} ในวันที่ ${dateStr}`, 'info');
                     }
                     
@@ -369,6 +356,5 @@
             } catch(e) { hideLoading(); Swal.fire('ข้อผิดพลาด', 'ดึงข้อมูลรายงานไม่สำเร็จ', 'error'); }
         }
     </script>
-    
 </body>
 </html>
